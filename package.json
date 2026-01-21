@@ -1,0 +1,24 @@
+{
+  "name": "freddy-spel",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/FreddyDff/freddy-spel#readme",
+  "bugs": {
+    "url": "https://github.com/FreddyDff/freddy-spel/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FreddyDff/freddy-spel.git"
+  },
+  "license": "ISC",
+  "author": "frefue",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "nodemon": "^3.1.11"
+  }
+}
