@@ -18,6 +18,11 @@ const port = 8555;
 
 
 
+// Skapa en HTTP server och Websocket server
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+
+
 // middleware
 // --------------------------------------------------------------
 
@@ -32,15 +37,24 @@ const port = 8555;
 
 // för att kunna lyssna på events
 // --------------------------------------------------------------
-WebSocketServer.on('connection', (ws) => {
+wss.on('connection', (ws) => {
 
-  console.log(`A new client connected!, total clients: ${WebSocketServer.clients.size}`);
+
+  // info om klienter som autentiserats  - websockets kommunikation ok
+  console.log(`A new client connected! Total clients: ${wss.clients.size}`);
+
+
+// lyssna på event när en klient lämnar kommunikationen
+  ws.on('close', () => {
+    console.log(`A client disconnected! Total clients: ${wss.clients.size}`);
+  });
+
 });
 
 
 
 // för att kunna starta servern
 // --------------------------------------------------------------
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
