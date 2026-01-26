@@ -4,6 +4,8 @@
 
 // en express server applikation
 import express from 'express';
+import http from 'http';
+import { WebSocketServer } from 'ws';
 
 // miljövariabler och inställningar
 // --------------------------------------------------------------
@@ -30,6 +32,11 @@ const port = 8555;
 
 // för att kunna lyssna på events
 // --------------------------------------------------------------
+WebSocketServer.on('connection', (ws) => {
+
+  console.log(`A new client connected!, total clients: ${WebSocketServer.clients.size}`);
+});
+
 
 
 // för att kunna starta servern
