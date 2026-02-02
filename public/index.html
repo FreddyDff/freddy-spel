@@ -1,35 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rita o va glad</title>
 </head>
+
 <body>
-    
-<link rel="stylesheet" href="style.css">
+
+    <link rel="stylesheet" href="style.css">
 
 
-<h1>Rita!</h1>
+    <h1>Rita!</h1>
 
 
-<!-- input text -->
- <form action="">
+    <!-- formulär som anger vem man är... -->
+    <form id="formUsername" action="">
+
+        <input type="text" name="username" id="username" placeholder="Berätta vem du är!">
+        <input type="submit" value="Börja chatta">
+
+    </form>
+
+
+    <section id="chatStage" class="hidden">
+
+        <!-- input text - forumlär för att skriva meddelande... -->
+        <form id="formMessage" action="">
 
 
 
-    <input type="text" name="msg" id="msg" placeholder="Skriv!">
-    <input type="submit" value="Skicka">
+            <input type="text" name="msg" id="msg" placeholder="Skriv!">
+            <input type="submit" value="Skicka">
 
- </form>
-
-
- <div id="chat"></div>
-
- 
+        </form>
 
 
-<script src="scripts/code.js"></script>
+        <div id="chat"></div>
+
+    </section>
+
+    <!-- </section> -->
+
+
+    <script src="scripts/code.js"></script>
 
 </body>
+
 </html>

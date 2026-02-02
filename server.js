@@ -28,7 +28,7 @@ const wss = new WebSocketServer({ noServer: true });
 
 // Handskakning - godkänn kommunikation via WebSocket
 server.on("upgrade", (req, socket, head) => {
-  
+
   console.log("event upgrade...");
 
   // bestäm vem som får kommunicera med websocket
@@ -62,6 +62,9 @@ server.on("upgrade", (req, socket, head) => {
 // --------------------------------------------------------------
 
 
+// färger för klienter
+const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'];
+let clientCount = 0;
 
 
 // för att kunna lyssna på events
@@ -69,36 +72,50 @@ server.on("upgrade", (req, socket, head) => {
 wss.on('connection', (ws) => {
 
 
+  // tilldelda en unik färg till klienten
+  const clientColor = colors[clientCount % colors.length];
+  clientCount++;
+
+
   // info om klienter som autentiserats  - websockets kommunikation ok
   console.log(`A new client connected! Total clients: ${wss.clients.size}`);
 
 
   // skicka meddelande till 'browser land'
-//   skicka och ta emot data, förutsatt att det är i JSON format
+  //   skicka och ta emot data, förutsatt att det är i JSON format
 
-const obj = {msg: "ny klient ansluten 😁"};
+  const obj = { msg: "ny klient ansluten 😁" };
 
   ws.send(JSON.stringify(obj));
 
-// lyssna på event när en klient lämnar kommunikationen
+  // lyssna på event när en klient lämnar kommunikationen
   ws.on('close', () => {
 
     console.log(`A client disconnected! Total clients: ${wss.clients.size}`);
   });
 
 
-// lyssna på event av sorten "message"
+  // lyssna på event av sorten "message"
   ws.on('message', (data) => {
 
-const obj = JSON.parse(data);
 
-console.log(obj);
+    // eventuellt kontrollera att det verkligen är ett objekt som döljer sig bakom textsträngen. 
+    const obj = JSON.parse(data);
+
+    // lägg till färgen från denna klient
+    obj.color = clientColor;
+
+    console.log(obj);
 
 
-wss.clients.forEach((client) => {
-client.send(JSON.stringify(obj));
-});
+    wss.clients.forEach((client) => {
+      client.send(JSON.stringify(obj));
+    });
+
+
   });
+
+
 
 });
 

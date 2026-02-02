@@ -5,3 +5,11 @@ body {
 
 }
 
+section#chatStage {
+
+}
+
+.hidden {
+    display: none
+}
+

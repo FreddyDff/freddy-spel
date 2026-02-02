@@ -59,9 +59,24 @@ websocket.addEventListener("message", (e) => {
 const obj = JSON.parse(e.data);
 console.log("Meddelande från server:", obj);
 
+renderChatMessage(obj);
 
 });
 
 // funktioner
 
+function renderChatMessage(obj) {
 
+// chatElement.innerHTML += `<p class="">${obj.msg}</p>`;
+
+const p = document.createElement("p");
+p.textContent = obj.msg;
+
+ // använd färgen från servern
+  if (obj.color) {
+    p.style.color = obj.color;
+  }
+
+chatElement.appendChild(p);
+
+}
