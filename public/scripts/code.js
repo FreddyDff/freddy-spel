@@ -5,11 +5,18 @@ const usernameInput = document.querySelector('#username');
 const msgElement = document.querySelector("#msg");
 const chatElement = document.querySelector("#chat");
 const chatStage = document.querySelector("#chatStage");
+const canvas = document.querySelector('#drawingCanvas');
+const clearCanvasBtn = document.querySelector('#clearCanvas');
 
 // variabler, inställningar
 let username = '';
 let websocket = null;
 let lastSentMessage = null; // För att hålla koll på senaste skickade meddelandet
+
+// Canvas-ritning variabler
+let isDrawing = false;
+let ctx = null;
+let userColor = null; // Färg som användaren får från servern
 
 // händelse lyssnare
 
@@ -23,6 +30,9 @@ formUsername.addEventListener('submit', (e) => {
     // Dölj användarnamnsformuläret och visa chatten
     formUsername.style.display = 'none';
     chatStage.classList.remove('hidden');
+    
+    // Initiera ritblocket
+    initCanvas();
     
     // Anslut till WebSocket
     connectWebSocket();
@@ -72,6 +82,21 @@ msgElement.addEventListener("keydown", (e) => {
   // hantera att en person skriver ngt - kan kanske skickas som en händelse backend.
 });
 
+// Canvas-ritning händelse lyssnare
+clearCanvasBtn.addEventListener('click', () => {
+  if (ctx) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Skicka clear-kommando till alla andra användare
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send(JSON.stringify({
+        type: 'clearCanvas',
+        username: username
+      }));
+    }
+  }
+});
+
 // Funktioner
 
 function connectWebSocket() {
@@ -91,6 +116,29 @@ function connectWebSocket() {
     if (obj.isSystemMessage) {
       renderChatMessage(obj);
       return;
+    }
+    
+    // Om det är ritdata
+    if (obj.type === 'draw') {
+      handleRemoteDrawing(obj);
+      return;
+    }
+    
+    // Om det är clear-canvas kommando
+    if (obj.type === 'clearCanvas') {
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      return;
+    }
+    
+    // Spara användarens färg om den skickas från servern
+    if (obj.color && obj.username === username && !userColor) {
+      userColor = obj.color;
+      // Uppdatera canvas-färg
+      if (ctx) {
+        ctx.strokeStyle = userColor;
+      }
     }
     
     // Om meddelandet är från oss själva och vi nyligen skickade det,
@@ -240,4 +288,196 @@ function renderChatMessage(obj) {
   
   // Scrolla ner till senaste meddelandet
   chatElement.scrollTop = chatElement.scrollHeight;
+}
+
+// Hantera ritdata från andra användare
+function handleRemoteDrawing(data) {
+  if (!ctx || !data.color) return;
+  
+  // Ignorera ritningar från oss själva (vi har redan ritat dem lokalt)
+  if (data.username === username) {
+    return;
+  }
+  
+  // Spara nuvarande inställningar
+  const currentStrokeStyle = ctx.strokeStyle;
+  const currentLineWidth = ctx.lineWidth;
+  const currentLineCap = ctx.lineCap;
+  const currentLineJoin = ctx.lineJoin;
+  
+  // Sätt färg och linjebredd för denna användare
+  ctx.strokeStyle = data.color;
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  
+  if (data.action === 'start') {
+    ctx.beginPath();
+    ctx.moveTo(data.x, data.y);
+  } else if (data.action === 'move') {
+    ctx.lineTo(data.x, data.y);
+    ctx.stroke();
+  } else if (data.action === 'stop') {
+    // Inget särskilt att göra vid stop
+  }
+  
+  // Återställ inställningar
+  ctx.strokeStyle = currentStrokeStyle;
+  ctx.lineWidth = currentLineWidth;
+  ctx.lineCap = currentLineCap;
+  ctx.lineJoin = currentLineJoin;
+}
+
+// Canvas-ritning funktioner
+function initCanvas() {
+  if (!canvas) return;
+  
+  // Sätt canvas-storlek
+  canvas.width = 800;
+  canvas.height = 400;
+  
+  // Hämta context
+  ctx = canvas.getContext('2d');
+  
+  // Sätt standardinställningar (färgen uppdateras när den kommer från servern)
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  
+  // Event listeners för mus
+  canvas.addEventListener('mousedown', startDrawing);
+  canvas.addEventListener('mousemove', draw);
+  canvas.addEventListener('mouseup', stopDrawing);
+  canvas.addEventListener('mouseout', stopDrawing);
+  
+  // Event listeners för touch (mobil)
+  canvas.addEventListener('touchstart', handleTouch);
+  canvas.addEventListener('touchmove', handleTouch);
+  canvas.addEventListener('touchend', stopDrawing);
+}
+
+function getMousePos(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top
+  };
+}
+
+function getTouchPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0] || e.changedTouches[0];
+  return {
+    x: touch.clientX - rect.left,
+    y: touch.clientY - rect.top
+  };
+}
+
+function startDrawing(e) {
+  isDrawing = true;
+  const pos = getMousePos(e);
+  
+  // Använd användarens färg om den finns, annars svart
+  if (userColor) {
+    ctx.strokeStyle = userColor;
+  }
+  
+  ctx.beginPath();
+  ctx.moveTo(pos.x, pos.y);
+  
+  // Skicka ritdata till servern
+  if (websocket && websocket.readyState === WebSocket.OPEN) {
+    websocket.send(JSON.stringify({
+      type: 'draw',
+      action: 'start',
+      x: pos.x,
+      y: pos.y,
+      username: username
+    }));
+  }
+}
+
+function draw(e) {
+  if (!isDrawing) return;
+  
+  const pos = getMousePos(e);
+  ctx.lineTo(pos.x, pos.y);
+  ctx.stroke();
+  
+  // Skicka ritdata till servern
+  if (websocket && websocket.readyState === WebSocket.OPEN) {
+    websocket.send(JSON.stringify({
+      type: 'draw',
+      action: 'move',
+      x: pos.x,
+      y: pos.y,
+      username: username
+    }));
+  }
+}
+
+function stopDrawing() {
+  if (isDrawing) {
+    isDrawing = false;
+    
+    // Skicka stop-signal till servern
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send(JSON.stringify({
+        type: 'draw',
+        action: 'stop',
+        username: username
+      }));
+    }
+  }
+}
+
+function handleTouch(e) {
+  e.preventDefault();
+  const touch = e.touches[0] || e.changedTouches[0];
+  const pos = getTouchPos(e);
+  
+  if (e.type === 'touchstart') {
+    isDrawing = true;
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    
+    // Skicka ritdata till servern
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send(JSON.stringify({
+        type: 'draw',
+        action: 'start',
+        x: pos.x,
+        y: pos.y,
+        username: username
+      }));
+    }
+  } else if (e.type === 'touchmove' && isDrawing) {
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    
+    // Skicka ritdata till servern
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send(JSON.stringify({
+        type: 'draw',
+        action: 'move',
+        x: pos.x,
+        y: pos.y,
+        username: username
+      }));
+    }
+  } else if (e.type === 'touchend') {
+    if (isDrawing) {
+      isDrawing = false;
+      
+      // Skicka stop-signal till servern
+      if (websocket && websocket.readyState === WebSocket.OPEN) {
+        websocket.send(JSON.stringify({
+          type: 'draw',
+          action: 'stop',
+          username: username
+        }));
+      }
+    }
+  }
 }

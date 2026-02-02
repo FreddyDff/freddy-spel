@@ -11,6 +11,9 @@ import { WebSocketServer } from 'ws';
 // --------------------------------------------------------------
 const app = express();
 
+// Middleware för att parsa JSON i HTTP requests
+app.use(express.json());
+
 // en mapp som express kan använda för att visa upp på webbläsaren(skicka filer)
 app.use(express.static('public'));
 
@@ -54,12 +57,43 @@ server.on("upgrade", (req, socket, head) => {
 
 // middleware
 // --------------------------------------------------------------
-
-
-
+// (express.json() är redan lagt till ovan)
 
 // routes
 // --------------------------------------------------------------
+
+// Exempel: Ta emot HTTP POST request
+app.post('/api/message', (req, res) => {
+  // req.body innehåller nu det parsade JSON-objektet automatiskt
+  // tack vare express.json() middleware
+  console.log('POST request mottagen:', req.body);
+  
+  // Exempel: Skicka meddelandet via WebSocket till alla klienter
+  if (req.body.msg && req.body.username) {
+    const obj = {
+      msg: req.body.msg,
+      username: req.body.username,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Skicka till alla WebSocket-klienter
+    broadcast(obj);
+    
+    // Skicka svar tillbaka till HTTP-klienten
+    res.json({ success: true, message: 'Meddelande skickat' });
+  } else {
+    res.status(400).json({ success: false, error: 'Saknar msg eller username' });
+  }
+});
+
+// Ytterligare exempel: En enkel GET route
+app.get('/api/status', (req, res) => {
+  res.json({ 
+    status: 'online', 
+    clients: wss.clients.size,
+    timestamp: new Date().toISOString()
+  });
+});
 
 
 // färger för klienter
@@ -145,10 +179,19 @@ wss.on('connection', (ws) => {
         broadcast(joinMsg, ws); // Skicka till alla utom den som anslöt
       }
 
-      // lägg till färgen från denna klient
-      obj.color = clientColors.get(ws) || colors[0];
+      // Hämta användarens färg
+      const clientColor = clientColors.get(ws) || colors[0];
       
-      // lägg till tidsstämpel
+      // Om det är ritdata eller clear-canvas, lägg till färg och skicka vidare
+      if (obj.type === 'draw' || obj.type === 'clearCanvas') {
+        obj.color = clientColor;
+        // Skicka till alla andra klienter (inte till avsändaren)
+        broadcast(obj, ws);
+        return;
+      }
+
+      // För vanliga meddelanden, lägg till färg och tidsstämpel
+      obj.color = clientColor;
       obj.timestamp = new Date().toISOString();
 
       console.log("Mottaget meddelande:", obj);
