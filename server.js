@@ -66,6 +66,23 @@ server.on("upgrade", (req, socket, head) => {
 const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'];
 let clientCount = 0;
 
+// För att kunna lagra klientinformation
+const clientColors = new Map();
+const clientUsernames = new Map();
+
+// Hjälpfunktion för att skicka meddelanden till alla klienter
+function broadcast(data, excludeClient = null) {
+  wss.clients.forEach((client) => {
+    // Skicka bara till öppna anslutningar
+    if (client.readyState === 1) { // WebSocket.OPEN
+      // Om excludeClient är angiven, skicka inte till den klienten
+      if (excludeClient && client === excludeClient) {
+        return;
+      }
+      client.send(JSON.stringify(data));
+    }
+  });
+}
 
 // för att kunna lyssna på events
 // --------------------------------------------------------------
@@ -75,7 +92,7 @@ wss.on('connection', (ws) => {
   // tilldelda en unik färg till klienten
   const clientColor = colors[clientCount % colors.length];
   clientCount++;
-
+  clientColors.set(ws, clientColor);
 
   // info om klienter som autentiserats  - websockets kommunikation ok
   console.log(`A new client connected! Total clients: ${wss.clients.size}`);
@@ -84,35 +101,63 @@ wss.on('connection', (ws) => {
   // skicka meddelande till 'browser land'
   //   skicka och ta emot data, förutsatt att det är i JSON format
 
-  const obj = { msg: "ny klient ansluten 😁" };
-
-  ws.send(JSON.stringify(obj));
+  const welcomeMsg = { msg: "Välkommen till chatten! 🎉" };
+  ws.send(JSON.stringify(welcomeMsg));
 
   // lyssna på event när en klient lämnar kommunikationen
   ws.on('close', () => {
-
+    const leavingUsername = clientUsernames.get(ws);
+    
+      // Skicka meddelande till alla andra klienter att någon lämnade
+      if (leavingUsername) {
+        const leaveMsg = {
+          msg: `${leavingUsername} lämnade chatten 👋`,
+          isSystemMessage: true,
+          timestamp: new Date().toISOString()
+        };
+      
+        broadcast(leaveMsg, ws); // Skicka till alla utom den som lämnade
+    }
+    
+    clientColors.delete(ws);
+    clientUsernames.delete(ws);
     console.log(`A client disconnected! Total clients: ${wss.clients.size}`);
   });
 
 
   // lyssna på event av sorten "message"
   ws.on('message', (data) => {
+    try {
+      // eventuellt kontrollera att det verkligen är ett objekt som döljer sig bakom textsträngen. 
+      const obj = JSON.parse(data);
 
+      // Spara användarnamnet om det finns
+      if (obj.username && !clientUsernames.has(ws)) {
+        clientUsernames.set(ws, obj.username);
+        
+        // Skicka meddelande till alla andra att någon anslöt
+        const joinMsg = {
+          msg: `${obj.username} anslöt till chatten 🎉`,
+          isSystemMessage: true,
+          timestamp: new Date().toISOString()
+        };
+        
+        broadcast(joinMsg, ws); // Skicka till alla utom den som anslöt
+      }
 
-    // eventuellt kontrollera att det verkligen är ett objekt som döljer sig bakom textsträngen. 
-    const obj = JSON.parse(data);
+      // lägg till färgen från denna klient
+      obj.color = clientColors.get(ws) || colors[0];
+      
+      // lägg till tidsstämpel
+      obj.timestamp = new Date().toISOString();
 
-    // lägg till färgen från denna klient
-    obj.color = clientColor;
+      console.log("Mottaget meddelande:", obj);
 
-    console.log(obj);
-
-
-    wss.clients.forEach((client) => {
-      client.send(JSON.stringify(obj));
-    });
-
-
+      // Skicka till alla klienter
+      broadcast(obj);
+    } catch (error) {
+      console.error("Fel vid parsning av meddelande:", error);
+    }
   });
 
 
