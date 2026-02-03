@@ -115,12 +115,12 @@ clearCanvasBtn.addEventListener('click', () => {
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     
     // Skicka clear-kommando till alla andra användare
-    // if (websocket && websocket.readyState === WebSocket.OPEN) {
-    //   websocket.send(JSON.stringify({
-    //     type: 'clearCanvas',
-    //     username: username
-    //   }));
-    // }
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send(JSON.stringify({
+        type: 'clearCanvas',
+        username: username
+      }));
+    }
   }
 });
 
@@ -152,12 +152,15 @@ function connectWebSocket() {
     }
     
     // Om det är clear-canvas kommando
-    // if (obj.type === 'clearCanvas') {
-    //   if (ctx) {
-    //     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    //   }
-    //   return;
-    // }
+    if (obj.type === 'clearCanvas') {
+      // Om det är vår egen rensning, har vi redan rensat overlayCanvas lokalt
+      // Om det är någon annans rensning, rensa deras ritningar från backgroundCanvas
+      if (obj.username !== username && backgroundCtx) {
+        // Rensa hela backgroundCanvas (eftersom vi inte kan selektivt rensa en användares ritningar)
+        backgroundCtx.clearRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+      }
+      return;
+    }
     
     // Spara användarens färg om den skickas från servern
     if (obj.color && obj.username === username && !userColor) {
