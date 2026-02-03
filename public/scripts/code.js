@@ -7,6 +7,10 @@ const chatElement = document.querySelector("#chat");
 const chatStage = document.querySelector("#chatStage");
 const canvas = document.querySelector('#drawingCanvas');
 const clearCanvasBtn = document.querySelector('#clearCanvas');
+const drawingArea = document.querySelector('#drawingArea');
+const cursorIndicator = document.querySelector('#cursorIndicator');
+const brushSound = new Audio('sounds/pen-colouring-34227.mp3');
+brushSound.volume = 0.2;
 
 // variabler, inställningar
 let username = '';
@@ -17,6 +21,9 @@ let lastSentMessage = null; // För att hålla koll på senaste skickade meddela
 let isDrawing = false;
 let ctx = null;
 let userColor = null; // Färg som användaren får från servern
+let currentBrushSize = 3;
+let currentBrushType = 'normal';
+let currentSound = null; // Håll koll på det aktuella ljudet som spelas
 
 // händelse lyssnare
 
@@ -77,12 +84,27 @@ formMessage.addEventListener('submit', (e) => {
 });
 
 // Aktivera lyssnare på input#msg: kan användas för att visa att ngn skriver..
-msgElement.addEventListener("keydown", (e) => {
-  console.log("Ngn skriver", e.key);
-  // hantera att en person skriver ngt - kan kanske skickas som en händelse backend.
-});
+// // msgElement.addEventListener("keydown", (e) => {
+// //   console.log("Ngn skriver", e.key);
+//   // hantera att en person skriver ngt - kan kanske skickas som en händelse backend.
+// });
 
 // Canvas-ritning händelse lyssnare
+const brushSizeSelect = document.querySelector('#brushSize');
+const brushTypeSelect = document.querySelector('#brushType');
+
+if (brushSizeSelect) {
+  brushSizeSelect.addEventListener('change', (e) => {
+    currentBrushSize = parseInt(e.target.value);
+  });
+}
+
+if (brushTypeSelect) {
+  brushTypeSelect.addEventListener('change', (e) => {
+    currentBrushType = e.target.value;
+  });
+}
+
 clearCanvasBtn.addEventListener('click', () => {
   if (ctx) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -300,16 +322,26 @@ function handleRemoteDrawing(data) {
   }
   
   // Spara nuvarande inställningar
-  const currentStrokeStyle = ctx.strokeStyle;
-  const currentLineWidth = ctx.lineWidth;
-  const currentLineCap = ctx.lineCap;
-  const currentLineJoin = ctx.lineJoin;
+  const savedStrokeStyle = ctx.strokeStyle;
+  const savedLineWidth = ctx.lineWidth;
+  const savedLineCap = ctx.lineCap;
+  const savedLineJoin = ctx.lineJoin;
+  const savedGlobalAlpha = ctx.globalAlpha;
   
-  // Sätt färg och linjebredd för denna användare
+  // Sätt färg och penselinställningar för denna användare
   ctx.strokeStyle = data.color;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = data.brushSize || 3;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+  
+  // Sätt penseltyp (opacity)
+  if (data.brushType === 'marker') {
+    ctx.globalAlpha = 0.5;
+  } else if (data.brushType === 'pen') {
+    ctx.globalAlpha = 0.8;
+  } else {
+    ctx.globalAlpha = 1.0;
+  }
   
   if (data.action === 'start') {
     ctx.beginPath();
@@ -322,10 +354,11 @@ function handleRemoteDrawing(data) {
   }
   
   // Återställ inställningar
-  ctx.strokeStyle = currentStrokeStyle;
-  ctx.lineWidth = currentLineWidth;
-  ctx.lineCap = currentLineCap;
-  ctx.lineJoin = currentLineJoin;
+  ctx.strokeStyle = savedStrokeStyle;
+  ctx.lineWidth = savedLineWidth;
+  ctx.lineCap = savedLineCap;
+  ctx.lineJoin = savedLineJoin;
+  ctx.globalAlpha = savedGlobalAlpha;
 }
 
 // Canvas-ritning funktioner
@@ -341,15 +374,18 @@ function initCanvas() {
   
   // Sätt standardinställningar (färgen uppdateras när den kommer från servern)
   ctx.strokeStyle = '#000000';
-  ctx.lineWidth = 3;
+  ctx.lineWidth = currentBrushSize;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+  ctx.globalAlpha = 1.0;
   
   // Event listeners för mus
   canvas.addEventListener('mousedown', startDrawing);
+  canvas.addEventListener('mousemove', updateCursorIndicator);
   canvas.addEventListener('mousemove', draw);
   canvas.addEventListener('mouseup', stopDrawing);
-  canvas.addEventListener('mouseout', stopDrawing);
+  canvas.addEventListener('mouseout', hideCursorIndicator);
+  canvas.addEventListener('mouseenter', showCursorIndicator);
   
   // Event listeners för touch (mobil)
   canvas.addEventListener('touchstart', handleTouch);
@@ -374,26 +410,85 @@ function getTouchPos(e) {
   };
 }
 
-function startDrawing(e) {
-  isDrawing = true;
-  const pos = getMousePos(e);
+// Funktioner för cursor-indikator
+function updateCursorIndicator(e) {
+  if (!cursorIndicator) return;
+  
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  
+  // Uppdatera positionen för indikatorn
+  cursorIndicator.style.left = (rect.left + x) + 'px';
+  cursorIndicator.style.top = (rect.top + y) + 'px';
+  cursorIndicator.classList.add('active');
+}
+
+function showCursorIndicator() {
+  if (cursorIndicator) {
+    cursorIndicator.classList.add('active');
+  }
+}
+
+function hideCursorIndicator() {
+  if (cursorIndicator) {
+    cursorIndicator.classList.remove('active');
+  }
+}
+
+function applyBrushSettings() {
+  // Sätt penselstorlek
+  ctx.lineWidth = currentBrushSize;
+  
+  // Sätt penseltyp (opacity för olika effekter)
+  if (currentBrushType === 'marker') {
+    ctx.globalAlpha = 0.5; // Marker är mer transparent
+  } else if (currentBrushType === 'pen') {
+    ctx.globalAlpha = 0.8; // Penna är lite transparent
+  } else {
+    ctx.globalAlpha = 1.0; // Normal är helt opak
+  }
   
   // Använd användarens färg om den finns, annars svart
   if (userColor) {
     ctx.strokeStyle = userColor;
+  } else {
+    ctx.strokeStyle = '#000000';
   }
+}
+
+function playBrushSound() {
+  const sound = brushSound.cloneNode(); // Klona ljudet
+  sound.volume = 0.2;
+  sound.play().catch(e => {
+    // Ignorera fel om ljudet inte kan spelas (t.ex. användaren har inte interagerat med sidan ännu)
+    console.log("Kunde inte spela ljud:", e);
+  });
+  return sound; // Returnera ljudet så vi kan stoppa det senare
+}
+
+function startDrawing(e) {
+  currentSound = playBrushSound(); // Spela ljud och spara referensen
+
+  isDrawing = true;
+  const pos = getMousePos(e);
+  
+  // Applicera penselinställningar
+  applyBrushSettings();
   
   ctx.beginPath();
   ctx.moveTo(pos.x, pos.y);
   
-  // Skicka ritdata till servern
+  // Skicka ritdata till servern (inklusive penselinfo)
   if (websocket && websocket.readyState === WebSocket.OPEN) {
     websocket.send(JSON.stringify({
       type: 'draw',
       action: 'start',
       x: pos.x,
       y: pos.y,
-      username: username
+      username: username,
+      brushSize: currentBrushSize,
+      brushType: currentBrushType
     }));
   }
 }
@@ -405,14 +500,16 @@ function draw(e) {
   ctx.lineTo(pos.x, pos.y);
   ctx.stroke();
   
-  // Skicka ritdata till servern
+  // Skicka ritdata till servern (inklusive penselinfo)
   if (websocket && websocket.readyState === WebSocket.OPEN) {
     websocket.send(JSON.stringify({
       type: 'draw',
       action: 'move',
       x: pos.x,
       y: pos.y,
-      username: username
+      username: username,
+      brushSize: currentBrushSize,
+      brushType: currentBrushType
     }));
   }
 }
@@ -420,6 +517,13 @@ function draw(e) {
 function stopDrawing() {
   if (isDrawing) {
     isDrawing = false;
+    
+    // Stoppa ljudet om det finns
+    if (currentSound) {
+      currentSound.pause();
+      currentSound.currentTime = 0;
+      currentSound = null;
+    }
     
     // Skicka stop-signal till servern
     if (websocket && websocket.readyState === WebSocket.OPEN) {
@@ -439,36 +543,52 @@ function handleTouch(e) {
   
   if (e.type === 'touchstart') {
     isDrawing = true;
+    currentSound = playBrushSound(); // Spela ljud och spara referensen
+    
+    // Applicera penselinställningar
+    applyBrushSettings();
+    
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
     
-    // Skicka ritdata till servern
+    // Skicka ritdata till servern (inklusive penselinfo)
     if (websocket && websocket.readyState === WebSocket.OPEN) {
       websocket.send(JSON.stringify({
         type: 'draw',
         action: 'start',
         x: pos.x,
         y: pos.y,
-        username: username
+        username: username,
+        brushSize: currentBrushSize,
+        brushType: currentBrushType
       }));
     }
   } else if (e.type === 'touchmove' && isDrawing) {
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
     
-    // Skicka ritdata till servern
+    // Skicka ritdata till servern (inklusive penselinfo)
     if (websocket && websocket.readyState === WebSocket.OPEN) {
       websocket.send(JSON.stringify({
         type: 'draw',
         action: 'move',
         x: pos.x,
         y: pos.y,
-        username: username
+        username: username,
+        brushSize: currentBrushSize,
+        brushType: currentBrushType
       }));
     }
   } else if (e.type === 'touchend') {
     if (isDrawing) {
       isDrawing = false;
+      
+      // Stoppa ljudet om det finns
+      if (currentSound) {
+        currentSound.pause();
+        currentSound.currentTime = 0;
+        currentSound = null;
+      }
       
       // Skicka stop-signal till servern
       if (websocket && websocket.readyState === WebSocket.OPEN) {

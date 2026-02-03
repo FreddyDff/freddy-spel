@@ -106,13 +106,67 @@ section#chatStage {
     height: 400px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    cursor: crosshair;
+    cursor: none; /* Dölj standard-cursor */
     background-color: #fff;
+    position: relative;
+}
+
+/* Visuell indikator för muspekare */
+#drawingArea {
+    position: relative;
+}
+
+.cursor-indicator {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #333;
+    border-radius: 50%;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    display: none;
+    background-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+}
+
+.cursor-indicator.active {
+    display: block;
 }
 
 #canvasControls {
     margin-top: 10px;
-    text-align: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+#brushControls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+#brushControls label {
+    font-size: 14px;
+    color: #333;
+    font-weight: bold;
+}
+
+#brushControls select {
+    padding: 6px 10px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: white;
+    cursor: pointer;
+}
+
+#brushControls select:hover {
+    border-color: #999;
 }
 
 #clearCanvas {

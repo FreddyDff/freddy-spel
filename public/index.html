@@ -31,7 +31,25 @@
                 Gemensamt ritblock - alla kan rita och se varandras ritningar
             </p>
             <canvas id="drawingCanvas"></canvas>
+            <div class="cursor-indicator" id="cursorIndicator"></div>
             <div id="canvasControls">
+                <div id="brushControls">
+                    <label>Penselstorlek:</label>
+                    <select id="brushSize">
+                        <option value="2">Tunn (2px)</option>
+                        <option value="3" selected>Normal (3px)</option>
+                        <option value="5">Medel (5px)</option>
+                        <option value="8">Tjock (8px)</option>
+                        <option value="12">Mycket tjock (12px)</option>
+                    </select>
+                    
+                    <label>Penseltyp:</label>
+                    <select id="brushType">
+                        <option value="normal" selected>Normal</option>
+                        <option value="marker">Marker</option>
+                        <option value="pen">Penna</option>
+                    </select>
+                </div>
                 <button type="button" id="clearCanvas">Rensa</button>
             </div>
         </div>
