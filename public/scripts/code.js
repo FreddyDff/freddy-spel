@@ -5,9 +5,11 @@ const usernameInput = document.querySelector('#username');
 const msgElement = document.querySelector("#msg");
 const chatElement = document.querySelector("#chat");
 const chatStage = document.querySelector("#chatStage");
-const canvas = document.querySelector('#drawingCanvas');
+const backgroundCanvas = document.querySelector('#backgroundCanvas');
+const overlayCanvas = document.querySelector('#overlayCanvas');
+const canvas = overlayCanvas; // Använd overlayCanvas som standard (för bakåtkompatibilitet)
+const brushIndicator = document.querySelector('#brushIndicator');
 const clearCanvasBtn = document.querySelector('#clearCanvas');
-const drawingArea = document.querySelector('#drawingArea');
 const cursorIndicator = document.querySelector('#cursorIndicator');
 const brushSound = new Audio('sounds/pen-colouring-34227.mp3');
 brushSound.volume = 0.2;
@@ -19,7 +21,9 @@ let lastSentMessage = null; // För att hålla koll på senaste skickade meddela
 
 // Canvas-ritning variabler
 let isDrawing = false;
-let ctx = null;
+let backgroundCtx = null; // Context för bakgrunds-canvasen (andras ritningar)
+let overlayCtx = null;    // Context för overlay-canvasen (dina ritningar)
+let ctx = overlayCtx;      // Tillfälligt för bakåtkompatibilitet
 let userColor = null; // Färg som användaren får från servern
 let currentBrushSize = 3;
 let currentBrushType = 'normal';
@@ -102,20 +106,21 @@ if (brushSizeSelect) {
 if (brushTypeSelect) {
   brushTypeSelect.addEventListener('change', (e) => {
     currentBrushType = e.target.value;
+    updateBrushIndicator();
   });
 }
 
 clearCanvasBtn.addEventListener('click', () => {
-  if (ctx) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (overlayCtx) {
+    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     
     // Skicka clear-kommando till alla andra användare
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(JSON.stringify({
-        type: 'clearCanvas',
-        username: username
-      }));
-    }
+    // if (websocket && websocket.readyState === WebSocket.OPEN) {
+    //   websocket.send(JSON.stringify({
+    //     type: 'clearCanvas',
+    //     username: username
+    //   }));
+    // }
   }
 });
 
@@ -147,19 +152,19 @@ function connectWebSocket() {
     }
     
     // Om det är clear-canvas kommando
-    if (obj.type === 'clearCanvas') {
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-      return;
-    }
+    // if (obj.type === 'clearCanvas') {
+    //   if (ctx) {
+    //     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    //   }
+    //   return;
+    // }
     
     // Spara användarens färg om den skickas från servern
     if (obj.color && obj.username === username && !userColor) {
       userColor = obj.color;
       // Uppdatera canvas-färg
-      if (ctx) {
-        ctx.strokeStyle = userColor;
+      if (overlayCtx) {
+        overlayCtx.strokeStyle = userColor;
       }
     }
     
@@ -314,113 +319,125 @@ function renderChatMessage(obj) {
 
 // Hantera ritdata från andra användare
 function handleRemoteDrawing(data) {
-  if (!ctx || !data.color) return;
+  if (!backgroundCtx || !data.color) return;
   
   // Ignorera ritningar från oss själva (vi har redan ritat dem lokalt)
   if (data.username === username) {
     return;
   }
   
-  // Spara nuvarande inställningar
-  const savedStrokeStyle = ctx.strokeStyle;
-  const savedLineWidth = ctx.lineWidth;
-  const savedLineCap = ctx.lineCap;
-  const savedLineJoin = ctx.lineJoin;
-  const savedGlobalAlpha = ctx.globalAlpha;
+  // Spara nuvarande inställningar på backgroundCtx
+  const savedStrokeStyle = backgroundCtx.strokeStyle;
+  const savedLineWidth = backgroundCtx.lineWidth;
+  const savedLineCap = backgroundCtx.lineCap;
+  const savedLineJoin = backgroundCtx.lineJoin;
+  const savedGlobalAlpha = backgroundCtx.globalAlpha;
   
-  // Sätt färg och penselinställningar för denna användare
-  ctx.strokeStyle = data.color;
-  ctx.lineWidth = data.brushSize || 3;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
+  // Sätt färg och penselinställningar för denna användare på backgroundCtx
+  backgroundCtx.strokeStyle = data.color;
+  backgroundCtx.lineWidth = data.brushSize || 3;
+  backgroundCtx.lineCap = 'round';
+  backgroundCtx.lineJoin = 'round';
   
   // Sätt penseltyp (opacity)
   if (data.brushType === 'marker') {
-    ctx.globalAlpha = 0.5;
+    backgroundCtx.globalAlpha = 0.5;
   } else if (data.brushType === 'pen') {
-    ctx.globalAlpha = 0.8;
+    backgroundCtx.globalAlpha = 0.8;
   } else {
-    ctx.globalAlpha = 1.0;
+    backgroundCtx.globalAlpha = 1.0;
   }
   
   if (data.action === 'start') {
-    ctx.beginPath();
-    ctx.moveTo(data.x, data.y);
+    backgroundCtx.beginPath();
+    backgroundCtx.moveTo(data.x, data.y);
   } else if (data.action === 'move') {
-    ctx.lineTo(data.x, data.y);
-    ctx.stroke();
+    backgroundCtx.lineTo(data.x, data.y);
+    backgroundCtx.stroke();
   } else if (data.action === 'stop') {
     // Inget särskilt att göra vid stop
   }
   
-  // Återställ inställningar
-  ctx.strokeStyle = savedStrokeStyle;
-  ctx.lineWidth = savedLineWidth;
-  ctx.lineCap = savedLineCap;
-  ctx.lineJoin = savedLineJoin;
-  ctx.globalAlpha = savedGlobalAlpha;
+  // Återställ inställningar på backgroundCtx
+  backgroundCtx.strokeStyle = savedStrokeStyle;
+  backgroundCtx.lineWidth = savedLineWidth;
+  backgroundCtx.lineCap = savedLineCap;
+  backgroundCtx.lineJoin = savedLineJoin;
+  backgroundCtx.globalAlpha = savedGlobalAlpha;
 }
 
 // Canvas-ritning funktioner
 function initCanvas() {
-  if (!canvas) return;
+  if (!backgroundCanvas || !overlayCanvas) return;
   
-  // Sätt canvas-storlek
-  canvas.width = 800;
-  canvas.height = 400;
+  // Sätt storlek på båda canvasarna
+  backgroundCanvas.width = 800;
+  backgroundCanvas.height = 400;
+  overlayCanvas.width = 800;
+  overlayCanvas.height = 400;
   
-  // Hämta context
-  ctx = canvas.getContext('2d');
+  // Hämta context för båda canvasarna
+  backgroundCtx = backgroundCanvas.getContext('2d');
+  overlayCtx = overlayCanvas.getContext('2d');
+  ctx = overlayCtx; // Uppdatera ctx för bakåtkompatibilitet
   
-  // Sätt standardinställningar (färgen uppdateras när den kommer från servern)
-  ctx.strokeStyle = '#000000';
-  ctx.lineWidth = currentBrushSize;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.globalAlpha = 1.0;
+  // ... resten av koden (sätt standardinställningar på overlayCtx)
+
   
-  // Event listeners för mus
-  canvas.addEventListener('mousedown', startDrawing);
-  canvas.addEventListener('mousemove', updateCursorIndicator);
-  canvas.addEventListener('mousemove', draw);
-  canvas.addEventListener('mouseup', stopDrawing);
-  canvas.addEventListener('mouseout', hideCursorIndicator);
-  canvas.addEventListener('mouseenter', showCursorIndicator);
+  // Sätt standardinställningar på overlayCtx (färgen uppdateras när den kommer från servern)
+  overlayCtx.strokeStyle = '#000000';
+  overlayCtx.lineWidth = currentBrushSize;
+  overlayCtx.lineCap = 'round';
+  overlayCtx.lineJoin = 'round';
+  overlayCtx.globalAlpha = 1.0;
+  
+  // Event listeners för mus (på overlayCanvas - där användaren ritar)
+  overlayCanvas.addEventListener('mousedown', startDrawing);
+  overlayCanvas.addEventListener('mousemove', updateCursorIndicator);
+  overlayCanvas.addEventListener('mousemove', draw);
+  overlayCanvas.addEventListener('mouseup', stopDrawing);
+  overlayCanvas.addEventListener('mouseout', (e) => {
+    stopDrawing();
+    hideCursorIndicator();
+  });
+  overlayCanvas.addEventListener('mouseenter', showCursorIndicator);
   
   // Event listeners för touch (mobil)
-  canvas.addEventListener('touchstart', handleTouch);
-  canvas.addEventListener('touchmove', handleTouch);
-  canvas.addEventListener('touchend', stopDrawing);
+  overlayCanvas.addEventListener('touchstart', handleTouch);
+  overlayCanvas.addEventListener('touchmove', handleTouch);
+  overlayCanvas.addEventListener('touchend', stopDrawing);
+
+  updateBrushIndicator();
 }
 
 function getMousePos(e) {
-  const rect = canvas.getBoundingClientRect();
+  const rect = overlayCanvas.getBoundingClientRect();
+  // Enkel beräkning - skalning mellan canvas storlek och visningsstorlek
+  const scaleX = overlayCanvas.width / rect.width;
+  const scaleY = overlayCanvas.height / rect.height;
   return {
-    x: e.clientX - rect.left,
-    y: e.clientY - rect.top
+    x: (e.clientX - rect.left) * scaleX,
+    y: (e.clientY - rect.top) * scaleY
   };
 }
 
 function getTouchPos(e) {
-  const rect = canvas.getBoundingClientRect();
+  const rect = overlayCanvas.getBoundingClientRect();
   const touch = e.touches[0] || e.changedTouches[0];
+  // Enkel beräkning - skalning mellan canvas storlek och visningsstorlek
+  const scaleX = overlayCanvas.width / rect.width;
+  const scaleY = overlayCanvas.height / rect.height;
   return {
-    x: touch.clientX - rect.left,
-    y: touch.clientY - rect.top
+    x: (touch.clientX - rect.left) * scaleX,
+    y: (touch.clientY - rect.top) * scaleY
   };
 }
 
 // Funktioner för cursor-indikator
 function updateCursorIndicator(e) {
   if (!cursorIndicator) return;
-  
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  
-  // Uppdatera positionen för indikatorn
-  cursorIndicator.style.left = (rect.left + x) + 'px';
-  cursorIndicator.style.top = (rect.top + y) + 'px';
+  cursorIndicator.style.left = e.clientX + 'px';
+  cursorIndicator.style.top = e.clientY + 'px';
   cursorIndicator.classList.add('active');
 }
 
@@ -437,25 +454,36 @@ function hideCursorIndicator() {
 }
 
 function applyBrushSettings() {
-  // Sätt penselstorlek
-  ctx.lineWidth = currentBrushSize;
+  // Sätt penselstorlek på overlayCtx (där användaren ritar)
+  overlayCtx.lineWidth = currentBrushSize;
   
   // Sätt penseltyp (opacity för olika effekter)
   if (currentBrushType === 'marker') {
-    ctx.globalAlpha = 0.5; // Marker är mer transparent
+    overlayCtx.globalAlpha = 0.5; // Marker är mer transparent
   } else if (currentBrushType === 'pen') {
-    ctx.globalAlpha = 0.8; // Penna är lite transparent
+    overlayCtx.globalAlpha = 0.8; // Penna är lite transparent
   } else {
-    ctx.globalAlpha = 1.0; // Normal är helt opak
+    overlayCtx.globalAlpha = 1.0; // Normal är helt opak
   }
   
   // Använd användarens färg om den finns, annars svart
   if (userColor) {
-    ctx.strokeStyle = userColor;
+    overlayCtx.strokeStyle = userColor;
   } else {
-    ctx.strokeStyle = '#000000';
+    overlayCtx.strokeStyle = '#000000';
   }
 }
+
+function updateBrushIndicator() {
+  if (currentBrushType === 'normal') {
+    brushIndicator.textContent = 'Normal';
+} else if (currentBrushType === 'marker') {
+    brushIndicator.textContent = 'Marker';
+} else if (currentBrushType === 'pen') {
+    brushIndicator.textContent = 'Penna';
+}
+};
+
 
 function playBrushSound() {
   const sound = brushSound.cloneNode(); // Klona ljudet
@@ -468,16 +496,22 @@ function playBrushSound() {
 }
 
 function startDrawing(e) {
+  e.preventDefault(); // Förhindra standardbeteende
+  
+  // Stoppa eventuellt pågående ritning först
+  if (isDrawing) {
+    stopDrawing();
+  }
+  
   currentSound = playBrushSound(); // Spela ljud och spara referensen
-
   isDrawing = true;
   const pos = getMousePos(e);
   
   // Applicera penselinställningar
   applyBrushSettings();
   
-  ctx.beginPath();
-  ctx.moveTo(pos.x, pos.y);
+  overlayCtx.beginPath();
+  overlayCtx.moveTo(pos.x, pos.y);
   
   // Skicka ritdata till servern (inklusive penselinfo)
   if (websocket && websocket.readyState === WebSocket.OPEN) {
@@ -496,9 +530,11 @@ function startDrawing(e) {
 function draw(e) {
   if (!isDrawing) return;
   
+  e.preventDefault(); // Förhindra standardbeteende
+  
   const pos = getMousePos(e);
-  ctx.lineTo(pos.x, pos.y);
-  ctx.stroke();
+  overlayCtx.lineTo(pos.x, pos.y);
+  overlayCtx.stroke();
   
   // Skicka ritdata till servern (inklusive penselinfo)
   if (websocket && websocket.readyState === WebSocket.OPEN) {
@@ -514,7 +550,9 @@ function draw(e) {
   }
 }
 
-function stopDrawing() {
+function stopDrawing(e) {
+  // Stoppa ritningen oavsett om isDrawing är true eller false
+  // (för att säkerställa att den alltid stoppas)
   if (isDrawing) {
     isDrawing = false;
     
@@ -548,8 +586,8 @@ function handleTouch(e) {
     // Applicera penselinställningar
     applyBrushSettings();
     
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(pos.x, pos.y);
     
     // Skicka ritdata till servern (inklusive penselinfo)
     if (websocket && websocket.readyState === WebSocket.OPEN) {
@@ -564,8 +602,8 @@ function handleTouch(e) {
       }));
     }
   } else if (e.type === 'touchmove' && isDrawing) {
-    ctx.lineTo(pos.x, pos.y);
-    ctx.stroke();
+    overlayCtx.lineTo(pos.x, pos.y);
+    overlayCtx.stroke();
     
     // Skicka ritdata till servern (inklusive penselinfo)
     if (websocket && websocket.readyState === WebSocket.OPEN) {
