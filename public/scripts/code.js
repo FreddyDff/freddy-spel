@@ -543,8 +543,10 @@ function updateCursorIndicator(e) {
   cursorIndicator.style.top = e.clientY + 'px';
   cursorIndicator.classList.add('active');
 
-  // Sätt ikon baserat på penseltyp
-  if (currentBrushType === 'penna') {
+  // Sätt ikon baserat på suddgummi-läge eller penseltyp
+  if (isEraserMode) {
+    cursorIndicator.textContent = '🧹'; // Suddgummi-ikon
+  } else if (currentBrushType === 'penna') {
     cursorIndicator.textContent = '✏️'; // eller '🖊️'
   } else if (currentBrushType === 'marker') {
     cursorIndicator.textContent = '🖍️'; // eller '🖌️'
