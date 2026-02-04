@@ -50,9 +50,9 @@
 
                     <label>Penseltyp:</label>
                     <select id="brushType">
-                        <option value="normal" selected>Normal</option>
+                        <option value="penna" selected>Penna</option>
                         <option value="marker">Marker</option>
-                        <option value="pen">Penna</option>
+                        <option value="pensel">Pensel</option>
                     </select>
 
                     <label>Färg:</label>
@@ -72,11 +72,46 @@
         <form id="formMessage" action="">
 
 
+            <button type="button" id="emojiBtn">😀</button>
 
             <input type="text" name="msg" id="msg" placeholder="Skriv!">
             <input type="submit" value="Skicka">
 
         </form>
+
+        <div id="emojiPicker" class="emoji-picker hidden">
+            <div class="emoji-grid">
+                <span class="emoji">😀</span>
+                <span class="emoji">😂</span>
+                <span class="emoji">😍</span>
+                <span class="emoji">😎</span>
+                <span class="emoji">👍</span>
+                <span class="emoji">❤️</span>
+                <span class="emoji">🎉</span>
+                <span class="emoji">🔥</span>
+                <span class="emoji">⭐</span>
+                <span class="emoji">💯</span>
+                <span class="emoji">😊</span>
+                <span class="emoji">😉</span>
+                <span class="emoji">😊</span>
+                <span class="emoji">😊</span>
+                <span class="emoji">😊</span>
+                <span class="emoji">😒</span>
+                <span class="emoji">😡</span>
+                <span class="emoji">😠</span>
+                <span class="emoji">😥</span>
+                <span class="emoji">😰</span>
+                <span class="emoji">😱</span>
+                <span class="emoji">😳</span>
+                <span class="emoji">😨</span>
+                <span class="emoji">🎶</span>
+                <span class="emoji">🎵</span>
+                <span class="emoji">🎶</span>
+                
+                <!-- Lägg till fler emojis om du vill -->
+            </div>
+        </div>
+
 
 
         <div id="chat"></div>

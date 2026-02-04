@@ -12,6 +12,8 @@ const brushIndicator = document.querySelector('#brushIndicator');
 const colorPicker = document.querySelector('#colorPicker');
 const clearCanvasBtn = document.querySelector('#clearCanvas');
 const cursorIndicator = document.querySelector('#cursorIndicator');
+const emojiBtn = document.querySelector('#emojiBtn');
+const emojiPicker = document.querySelector('#emojiPicker');
 const brushSound = new Audio('sounds/pen-colouring-34227.mp3');
 brushSound.volume = 0.2;
 
@@ -27,7 +29,7 @@ let overlayCtx = null;    // Context för overlay-canvasen (dina ritningar)
 let ctx = overlayCtx;      // Tillfälligt för bakåtkompatibilitet
 let userColor = null; // Färg som användaren får från servern
 let currentBrushSize = 3;
-let currentBrushType = 'normal';
+let currentBrushType = 'penna';
 let selectedColor = '#000000'; // Standardfärg (svart)
 let isEraserMode = false; // true när suddgummi är aktivt
 let currentSound = null; // Håll koll på det aktuella ljudet som spelas
@@ -37,17 +39,17 @@ let currentSound = null; // Håll koll på det aktuella ljudet som spelas
 // Hantera användarnamnsformulär
 formUsername.addEventListener('submit', (e) => {
   e.preventDefault();
-  
+
   username = usernameInput.value.trim();
-  
+
   if (username) {
     // Dölj användarnamnsformuläret och visa chatten
     formUsername.style.display = 'none';
     chatStage.classList.remove('hidden');
-    
+
     // Initiera ritblocket
     initCanvas();
-    
+
     // Anslut till WebSocket
     connectWebSocket();
   }
@@ -63,7 +65,7 @@ formMessage.addEventListener('submit', (e) => {
   }
 
   const msg = msgElement.value.trim();
-  
+
   if (msg) {
     // Skapa meddelandeobjekt för lokal rendering
     const localObj = {
@@ -78,16 +80,32 @@ formMessage.addEventListener('submit', (e) => {
 
     // Rendera meddelandet direkt lokalt (optimistic UI)
     renderChatMessage(localObj);
-    
+
     // Skicka meddelandet via websocket
     websocket.send(JSON.stringify({
       msg: msg,
       username: username
     }));
-    
+
     // Rensa inputfältet
     msgElement.value = '';
   }
+});
+
+// Visa/dölj emoji-picker när knappen klickas
+emojiBtn.addEventListener('click', () => {
+  emojiPicker.classList.toggle('hidden');
+});
+
+// Lägg till emoji i meddelandet när användaren klickar på en emoji
+const emojiElements = document.querySelectorAll('.emoji');
+emojiElements.forEach(emoji => {
+  emoji.addEventListener('click', (e) => {
+    const emojiText = e.target.textContent;
+    msgElement.value += emojiText; // Lägg till emoji i input-fältet
+    emojiPicker.classList.add('hidden'); // Dölj pickern
+    msgElement.focus(); // Sätt fokus tillbaka på input-fältet
+  });
 });
 
 // Aktivera lyssnare på input#msg: kan användas för att visa att ngn skriver..
@@ -111,6 +129,7 @@ if (brushTypeSelect) {
   brushTypeSelect.addEventListener('change', (e) => {
     currentBrushType = e.target.value;
     updateBrushIndicator();
+    updateCursor();
   });
 }
 
@@ -122,7 +141,7 @@ colorPicker.addEventListener('change', (e) => {
 clearCanvasBtn.addEventListener('click', () => {
   if (overlayCtx) {
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-    
+
     // Skicka clear-kommando till alla andra användare
     if (websocket && websocket.readyState === WebSocket.OPEN) {
       websocket.send(JSON.stringify({
@@ -135,7 +154,7 @@ clearCanvasBtn.addEventListener('click', () => {
 
 eraserBtn.addEventListener('click', () => {
   isEraserMode = !isEraserMode; // Växla mellan true och false
-  
+
   // Ändra knappens utseende för att visa om suddgummi är aktivt
   if (isEraserMode) {
     eraserBtn.style.backgroundColor = '#ff6b6b'; // Röd när aktivt
@@ -158,19 +177,19 @@ function connectWebSocket() {
   websocket.addEventListener("message", (e) => {
     const obj = JSON.parse(e.data);
     console.log("Meddelande från server:", obj);
-    
+
     // Om det är ett systemmeddelande, rendera det alltid
     if (obj.isSystemMessage) {
       renderChatMessage(obj);
       return;
     }
-    
+
     // Om det är ritdata
     if (obj.type === 'draw') {
       handleRemoteDrawing(obj);
       return;
     }
-    
+
     // Om det är clear-canvas kommando
     if (obj.type === 'clearCanvas') {
       // Om det är vår egen rensning, har vi redan rensat overlayCanvas lokalt
@@ -181,7 +200,7 @@ function connectWebSocket() {
       }
       return;
     }
-    
+
     // Spara användarens färg om den skickas från servern
     if (obj.color && obj.username === username && !userColor) {
       userColor = obj.color;
@@ -190,7 +209,7 @@ function connectWebSocket() {
         overlayCtx.strokeStyle = userColor;
       }
     }
-    
+
     // Om meddelandet är från oss själva och vi nyligen skickade det,
     // hoppa över att rendera det igen för att undvika dubbletter
     // (vi har redan renderat det lokalt)
@@ -206,7 +225,7 @@ function connectWebSocket() {
         return;
       }
     }
-    
+
     // Rendera meddelandet från servern
     renderChatMessage(obj);
   });
@@ -240,39 +259,64 @@ function removeLastLocalMessage() {
 
 function formatTimestamp(timestamp) {
   if (!timestamp) return '';
-  
+
   const date = new Date(timestamp);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  
+
   // Formatera tid (HH:MM)
   const hours = date.getHours().toString().padStart(2, '0');
   const minutes = date.getMinutes().toString().padStart(2, '0');
   const timeStr = `${hours}:${minutes}`;
-  
+
   // Om det är idag, visa bara tiden
   if (messageDate.getTime() === today.getTime()) {
     return timeStr;
   }
-  
+
   // Om det är igår
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
   if (messageDate.getTime() === yesterday.getTime()) {
     return `Igår ${timeStr}`;
   }
-  
+
   // Annars visa datum och tid
   const day = date.getDate().toString().padStart(2, '0');
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   return `${day}/${month} ${timeStr}`;
 }
 
+
+function convertEmoticonsToEmojis(text) {
+  if (!text) return text; // Om text är tom eller undefined, returnera den som den är
+  
+  // Konvertera olika emoticons till emojis
+  let converted = String(text); // Se till att det är en sträng
+  
+  // Glada ansikten - ordning är viktig! Kontrollera längre först
+  converted = converted.replace(/:-\)/g, '😊'); // :-) måste komma före :)
+  converted = converted.replace(/;-\)/g, '😉'); // ;-) måste komma före ;)
+  converted = converted.replace(/:D/g, '😀');
+  converted = converted.replace(/:\)/g, '😊');
+  converted = converted.replace(/;\)/g, '😉');
+  
+  // Lägg till fler om du vill:
+  // converted = converted.replace(/:\(/g, '😢');
+  // converted = converted.replace(/:P/g, '😛');
+  // converted = converted.replace(/<3/g, '❤️');
+  
+  return converted;
+}
+
+
+
+
 function renderChatMessage(obj) {
   const p = document.createElement("p");
   const timestamp = formatTimestamp(obj.timestamp);
-  
+
   // Om det är ett systemmeddelande (när någon ansluter/lämnar)
   if (obj.isSystemMessage) {
     p.className = 'system-message';
@@ -291,15 +335,15 @@ function renderChatMessage(obj) {
     // Vanligt meddelande
     const messageContainer = document.createElement('div');
     messageContainer.className = 'message-container';
-    
+
     // Använd färgen från servern
     if (obj.color) {
       messageContainer.style.borderLeftColor = obj.color;
     }
-    
+
     const messageContent = document.createElement('div');
     messageContent.className = 'message-content';
-    
+
     // Visa användarnamn om det finns
     if (obj.username) {
       const usernameSpan = document.createElement('span');
@@ -309,20 +353,20 @@ function renderChatMessage(obj) {
         usernameSpan.style.color = obj.color;
       }
       messageContent.appendChild(usernameSpan);
-      
+
       const textSpan = document.createElement('span');
       textSpan.className = 'message-text';
-      textSpan.textContent = `: ${obj.msg}`;
+      textSpan.textContent = `: ${convertEmoticonsToEmojis(obj.msg)}`;
       messageContent.appendChild(textSpan);
     } else {
       const textSpan = document.createElement('span');
       textSpan.className = 'message-text';
-      textSpan.textContent = obj.msg;
+      textSpan.textContent = convertEmoticonsToEmojis(obj.msg);
       messageContent.appendChild(textSpan);
     }
-    
+
     messageContainer.appendChild(messageContent);
-    
+
     // Lägg till tidsstämpel
     if (timestamp) {
       const timeSpan = document.createElement('span');
@@ -330,12 +374,12 @@ function renderChatMessage(obj) {
       timeSpan.textContent = timestamp;
       messageContainer.appendChild(timeSpan);
     }
-    
+
     p.appendChild(messageContainer);
   }
 
   chatElement.appendChild(p);
-  
+
   // Scrolla ner till senaste meddelandet
   chatElement.scrollTop = chatElement.scrollHeight;
 }
@@ -343,36 +387,37 @@ function renderChatMessage(obj) {
 // Hantera ritdata från andra användare
 function handleRemoteDrawing(data) {
   if (!backgroundCtx) return;
-  
+
   // Ignorera ritningar från oss själva (vi har redan ritat dem lokalt)
   if (data.username === username) {
     return;
   }
-  
+
   // Spara nuvarande inställningar på backgroundCtx
   const savedStrokeStyle = backgroundCtx.strokeStyle;
   const savedLineWidth = backgroundCtx.lineWidth;
   const savedLineCap = backgroundCtx.lineCap;
   const savedLineJoin = backgroundCtx.lineJoin;
   const savedGlobalAlpha = backgroundCtx.globalAlpha;
-  
+
   // Sätt färg och penselinställningar för denna användare på backgroundCtx
   backgroundCtx.strokeStyle = data.color;
   backgroundCtx.lineWidth = data.brushSize || 3;
   backgroundCtx.lineCap = 'round';
   backgroundCtx.lineJoin = 'round';
-  
+
+
   // Sätt penseltyp (opacity)
-  if (data.brushType === 'marker') {
-    backgroundCtx.globalAlpha = 0.5;
-  } else if (data.brushType === 'pen') {
+  if (data.brushType === 'penna') {
     backgroundCtx.globalAlpha = 0.8;
-  } else {
+  } else if (data.brushType === 'marker') {
+    backgroundCtx.globalAlpha = 0.5;
+  } else if (data.brushType === 'pensel') {
     backgroundCtx.globalAlpha = 1.0;
   }
-  
-   // Sätt suddgummi-läge för andras ritningar
-   if (data.isEraser) {
+
+  // Sätt suddgummi-läge för andras ritningar
+  if (data.isEraser) {
     backgroundCtx.globalCompositeOperation = 'destination-out';
   } else {
     backgroundCtx.globalCompositeOperation = 'source-over';
@@ -388,7 +433,7 @@ function handleRemoteDrawing(data) {
   } else if (data.action === 'stop') {
     // Inget särskilt att göra vid stop
   }
-  
+
   // Återställ inställningar på backgroundCtx
   backgroundCtx.strokeStyle = savedStrokeStyle;
   backgroundCtx.lineWidth = savedLineWidth;
@@ -400,28 +445,28 @@ function handleRemoteDrawing(data) {
 // Canvas-ritning funktioner
 function initCanvas() {
   if (!backgroundCanvas || !overlayCanvas) return;
-  
+
   // Sätt storlek på båda canvasarna
   backgroundCanvas.width = 800;
   backgroundCanvas.height = 400;
   overlayCanvas.width = 800;
   overlayCanvas.height = 400;
-  
+
   // Hämta context för båda canvasarna
   backgroundCtx = backgroundCanvas.getContext('2d');
   overlayCtx = overlayCanvas.getContext('2d');
   ctx = overlayCtx; // Uppdatera ctx för bakåtkompatibilitet
-  
+
   // ... resten av koden (sätt standardinställningar på overlayCtx)
 
-  
+
   // Sätt standardinställningar på overlayCtx (färgen uppdateras när den kommer från servern)
   overlayCtx.strokeStyle = '#000000';
   overlayCtx.lineWidth = currentBrushSize;
   overlayCtx.lineCap = 'round';
   overlayCtx.lineJoin = 'round';
   overlayCtx.globalAlpha = 1.0;
-  
+
   // Event listeners för mus (på overlayCanvas - där användaren ritar)
   overlayCanvas.addEventListener('mousedown', startDrawing);
   overlayCanvas.addEventListener('mousemove', updateCursorIndicator);
@@ -432,12 +477,14 @@ function initCanvas() {
     hideCursorIndicator();
   });
   overlayCanvas.addEventListener('mouseenter', showCursorIndicator);
-  
+
   // Event listeners för touch (mobil)
   overlayCanvas.addEventListener('touchstart', handleTouch);
   overlayCanvas.addEventListener('touchmove', handleTouch);
   overlayCanvas.addEventListener('touchend', stopDrawing);
 
+
+  updateCursor();
   updateBrushIndicator();
 }
 
@@ -470,6 +517,15 @@ function updateCursorIndicator(e) {
   cursorIndicator.style.left = e.clientX + 'px';
   cursorIndicator.style.top = e.clientY + 'px';
   cursorIndicator.classList.add('active');
+
+  // Sätt ikon baserat på penseltyp
+  if (currentBrushType === 'penna') {
+    cursorIndicator.textContent = '✏️'; // eller '🖊️'
+  } else if (currentBrushType === 'marker') {
+    cursorIndicator.textContent = '🖍️'; // eller '🖌️'
+  } else if (currentBrushType === 'pensel') {
+    cursorIndicator.textContent = '🖌️'; // eller '🖍️'
+  }
 }
 
 function showCursorIndicator() {
@@ -484,10 +540,22 @@ function hideCursorIndicator() {
   }
 }
 
+
+
+function updateCursor() {
+  if (!overlayCanvas) return;
+  overlayCanvas.style.cursor = 'none';
+
+}
+
+
+
+
+
 function applyBrushSettings() {
 
-   // Sätt suddgummi-läge
-   if (isEraserMode) {
+  // Sätt suddgummi-läge
+  if (isEraserMode) {
     overlayCtx.globalCompositeOperation = 'destination-out'; // Ta bort pixlar
   } else {
     overlayCtx.globalCompositeOperation = 'source-over'; // Normal ritning
@@ -495,16 +563,16 @@ function applyBrushSettings() {
 
   // Sätt penselstorlek på overlayCtx (där användaren ritar)
   overlayCtx.lineWidth = currentBrushSize;
-  
+
   // Sätt penseltyp (opacity för olika effekter)
-  if (currentBrushType === 'marker') {
-    overlayCtx.globalAlpha = 0.5; // Marker är mer transparent
-  } else if (currentBrushType === 'pen') {
-    overlayCtx.globalAlpha = 0.8; // Penna är lite transparent
-  } else {
-    overlayCtx.globalAlpha = 1.0; // Normal är helt opak
+  if (currentBrushType === 'penna') {
+    overlayCtx.globalAlpha = 0.8;
+  } else if (currentBrushType === 'marker') {
+    overlayCtx.globalAlpha = 0.5;
+  } else if (currentBrushType === 'pensel') {
+    overlayCtx.globalAlpha = 1.0;
   }
-  
+
   // Använd användarens färg om den finns, annars svart
   // if (userColor) {
   //   overlayCtx.strokeStyle = userColor;
@@ -517,11 +585,11 @@ function applyBrushSettings() {
 function updateBrushIndicator() {
   if (currentBrushType === 'normal') {
     brushIndicator.textContent = 'Normal';
-} else if (currentBrushType === 'marker') {
+  } else if (currentBrushType === 'marker') {
     brushIndicator.textContent = 'Marker';
-} else if (currentBrushType === 'pen') {
+  } else if (currentBrushType === 'pen') {
     brushIndicator.textContent = 'Penna';
-}
+  }
 };
 
 
@@ -537,22 +605,22 @@ function playBrushSound() {
 
 function startDrawing(e) {
   e.preventDefault(); // Förhindra standardbeteende
-  
+
   // Stoppa eventuellt pågående ritning först
   if (isDrawing) {
     stopDrawing();
   }
-  
+
   currentSound = playBrushSound(); // Spela ljud och spara referensen
   isDrawing = true;
   const pos = getMousePos(e);
-  
+
   // Applicera penselinställningar
   applyBrushSettings();
-  
+
   overlayCtx.beginPath();
   overlayCtx.moveTo(pos.x, pos.y);
-  
+
   // Skicka ritdata till servern (inklusive penselinfo)
   if (websocket && websocket.readyState === WebSocket.OPEN) {
     websocket.send(JSON.stringify({
@@ -571,13 +639,13 @@ function startDrawing(e) {
 
 function draw(e) {
   if (!isDrawing) return;
-  
+
   e.preventDefault(); // Förhindra standardbeteende
-  
+
   const pos = getMousePos(e);
   overlayCtx.lineTo(pos.x, pos.y);
   overlayCtx.stroke();
-  
+
   // Skicka ritdata till servern (inklusive penselinfo)
   if (websocket && websocket.readyState === WebSocket.OPEN) {
     websocket.send(JSON.stringify({
@@ -599,14 +667,14 @@ function stopDrawing(e) {
   // (för att säkerställa att den alltid stoppas)
   if (isDrawing) {
     isDrawing = false;
-    
+
     // Stoppa ljudet om det finns
     if (currentSound) {
       currentSound.pause();
       currentSound.currentTime = 0;
       currentSound = null;
     }
-    
+
     // Skicka stop-signal till servern
     if (websocket && websocket.readyState === WebSocket.OPEN) {
       websocket.send(JSON.stringify({
@@ -622,17 +690,17 @@ function handleTouch(e) {
   e.preventDefault();
   const touch = e.touches[0] || e.changedTouches[0];
   const pos = getTouchPos(e);
-  
+
   if (e.type === 'touchstart') {
     isDrawing = true;
     currentSound = playBrushSound(); // Spela ljud och spara referensen
-    
+
     // Applicera penselinställningar
     applyBrushSettings();
-    
+
     overlayCtx.beginPath();
     overlayCtx.moveTo(pos.x, pos.y);
-    
+
     // Skicka ritdata till servern (inklusive penselinfo)
     if (websocket && websocket.readyState === WebSocket.OPEN) {
       websocket.send(JSON.stringify({
@@ -650,7 +718,7 @@ function handleTouch(e) {
   } else if (e.type === 'touchmove' && isDrawing) {
     overlayCtx.lineTo(pos.x, pos.y);
     overlayCtx.stroke();
-    
+
     // Skicka ritdata till servern (inklusive penselinfo)
     if (websocket && websocket.readyState === WebSocket.OPEN) {
       websocket.send(JSON.stringify({
@@ -666,14 +734,14 @@ function handleTouch(e) {
   } else if (e.type === 'touchend') {
     if (isDrawing) {
       isDrawing = false;
-      
+
       // Stoppa ljudet om det finns
       if (currentSound) {
         currentSound.pause();
         currentSound.currentTime = 0;
         currentSound = null;
       }
-      
+
       // Skicka stop-signal till servern
       if (websocket && websocket.readyState === WebSocket.OPEN) {
         websocket.send(JSON.stringify({

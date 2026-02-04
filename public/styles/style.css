@@ -144,18 +144,18 @@ section#chatStage {
 
 /* Mörk cursor-indikator */
 .cursor-indicator {
-    position: fixed;
-    width: 16px;
-    height: 16px;
-    border: 2px solid #000;
-    border-radius: 50%;
-    pointer-events: none;
-    transform: translate(-50%, -50%);
-    z-index: 1000;
-    display: none;
-    background-color: rgba(0, 0, 0, 0.3);
-    box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
-}
+        position: fixed;
+        width: auto;  /* Ändra från 16px till auto */
+        height: auto; /* Ändra från 16px till auto */
+        /* Ta bort: border, border-radius, background-color, box-shadow */
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+        z-index: 1000;
+        display: none;
+        font-size: 24px; /* Storlek på emoji/ikon */
+        text-align: center;
+        line-height: 1;
+    }
 
 .cursor-indicator.active {
     display: block;
@@ -223,4 +223,47 @@ section#chatStage {
     display: inline-block;
     margin-left: 10px;
 
+}
+
+/* Emoji picker styling */
+.emoji-picker {
+    position: absolute;
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    z-index: 1000;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    margin-top: 5px;
+    max-width: 200px;
+}
+
+.emoji-picker.hidden {
+    display: none;
+}
+
+.emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+}
+
+.emoji {
+    font-size: 20px;
+    cursor: pointer;
+    padding: 6px;
+    text-align: center;
+    transition: all 0.2s;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.emoji:hover {
+    background-color: #f0f0f0;
+    transform: scale(1.1);
 }
