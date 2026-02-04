@@ -29,6 +29,7 @@ let userColor = null; // Färg som användaren får från servern
 let currentBrushSize = 3;
 let currentBrushType = 'normal';
 let selectedColor = '#000000'; // Standardfärg (svart)
+let isEraserMode = false; // true när suddgummi är aktivt
 let currentSound = null; // Håll koll på det aktuella ljudet som spelas
 
 // händelse lyssnare
@@ -98,6 +99,7 @@ formMessage.addEventListener('submit', (e) => {
 // Canvas-ritning händelse lyssnare
 const brushSizeSelect = document.querySelector('#brushSize');
 const brushTypeSelect = document.querySelector('#brushType');
+const eraserBtn = document.querySelector('#eraserBtn');
 
 if (brushSizeSelect) {
   brushSizeSelect.addEventListener('change', (e) => {
@@ -128,6 +130,17 @@ clearCanvasBtn.addEventListener('click', () => {
         username: username
       }));
     }
+  }
+});
+
+eraserBtn.addEventListener('click', () => {
+  isEraserMode = !isEraserMode; // Växla mellan true och false
+  
+  // Ändra knappens utseende för att visa om suddgummi är aktivt
+  if (isEraserMode) {
+    eraserBtn.style.backgroundColor = '#ff6b6b'; // Röd när aktivt
+  } else {
+    eraserBtn.style.backgroundColor = ''; // Normal färg när inaktivt
   }
 });
 
@@ -329,7 +342,7 @@ function renderChatMessage(obj) {
 
 // Hantera ritdata från andra användare
 function handleRemoteDrawing(data) {
-  if (!backgroundCtx || !data.color) return;
+  if (!backgroundCtx) return;
   
   // Ignorera ritningar från oss själva (vi har redan ritat dem lokalt)
   if (data.username === username) {
@@ -358,6 +371,14 @@ function handleRemoteDrawing(data) {
     backgroundCtx.globalAlpha = 1.0;
   }
   
+   // Sätt suddgummi-läge för andras ritningar
+   if (data.isEraser) {
+    backgroundCtx.globalCompositeOperation = 'destination-out';
+  } else {
+    backgroundCtx.globalCompositeOperation = 'source-over';
+  }
+
+
   if (data.action === 'start') {
     backgroundCtx.beginPath();
     backgroundCtx.moveTo(data.x, data.y);
@@ -464,6 +485,14 @@ function hideCursorIndicator() {
 }
 
 function applyBrushSettings() {
+
+   // Sätt suddgummi-läge
+   if (isEraserMode) {
+    overlayCtx.globalCompositeOperation = 'destination-out'; // Ta bort pixlar
+  } else {
+    overlayCtx.globalCompositeOperation = 'source-over'; // Normal ritning
+  }
+
   // Sätt penselstorlek på overlayCtx (där användaren ritar)
   overlayCtx.lineWidth = currentBrushSize;
   
@@ -534,7 +563,8 @@ function startDrawing(e) {
       username: username,
       brushSize: currentBrushSize,
       brushType: currentBrushType,
-      color: selectedColor
+      color: selectedColor,
+      isEraser: isEraserMode
     }));
   }
 }
@@ -558,7 +588,8 @@ function draw(e) {
       username: username,
       brushSize: currentBrushSize,
       brushType: currentBrushType,
-      color: selectedColor
+      color: selectedColor,
+      isEraser: isEraserMode
     }));
   }
 }
@@ -612,7 +643,8 @@ function handleTouch(e) {
         username: username,
         brushSize: currentBrushSize,
         brushType: currentBrushType,
-        color: selectedColor
+        color: selectedColor,
+        isEraser: isEraserMode
       }));
     }
   } else if (e.type === 'touchmove' && isDrawing) {
