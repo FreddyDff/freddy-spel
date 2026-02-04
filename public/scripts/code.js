@@ -14,6 +14,7 @@ const clearCanvasBtn = document.querySelector('#clearCanvas');
 const cursorIndicator = document.querySelector('#cursorIndicator');
 const emojiBtn = document.querySelector('#emojiBtn');
 const emojiPicker = document.querySelector('#emojiPicker');
+const backgroundMusic = document.querySelector('#backgroundMusic');
 const brushSound = new Audio('sounds/pen-colouring-34227.mp3');
 brushSound.volume = 0.2;
 
@@ -51,7 +52,16 @@ formUsername.addEventListener('submit', (e) => {
     initCanvas();
 
     // Anslut till WebSocket
+
     connectWebSocket();
+    // Spela bakgrundsmusik
+    if (backgroundMusic) {
+      backgroundMusic.volume = 0.001; // Sätt volym till 30%
+      backgroundMusic.play().catch(e => {
+        console.log("Kunde inte spela bakgrundsmusik:", e);
+      });
+    }
+
   }
 });
 
@@ -291,22 +301,22 @@ function formatTimestamp(timestamp) {
 
 function convertEmoticonsToEmojis(text) {
   if (!text) return text; // Om text är tom eller undefined, returnera den som den är
-  
+
   // Konvertera olika emoticons till emojis
   let converted = String(text); // Se till att det är en sträng
-  
+
   // Glada ansikten - ordning är viktig! Kontrollera längre först
   converted = converted.replace(/:-\)/g, '😊'); // :-) måste komma före :)
   converted = converted.replace(/;-\)/g, '😉'); // ;-) måste komma före ;)
   converted = converted.replace(/:D/g, '😀');
   converted = converted.replace(/:\)/g, '😊');
   converted = converted.replace(/;\)/g, '😉');
-  
+
   // Lägg till fler om du vill:
   // converted = converted.replace(/:\(/g, '😢');
   // converted = converted.replace(/:P/g, '😛');
   // converted = converted.replace(/<3/g, '❤️');
-  
+
   return converted;
 }
 
@@ -595,7 +605,7 @@ function updateBrushIndicator() {
 
 function playBrushSound() {
   const sound = brushSound.cloneNode(); // Klona ljudet
-  sound.volume = 0.2;
+  sound.volume = 0.6;
   sound.play().catch(e => {
     // Ignorera fel om ljudet inte kan spelas (t.ex. användaren har inte interagerat med sidan ännu)
     console.log("Kunde inte spela ljud:", e);
