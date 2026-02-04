@@ -184,7 +184,9 @@ wss.on('connection', (ws) => {
       
       // Om det är ritdata eller clear-canvas, lägg till färg och skicka vidare
       if (obj.type === 'draw' || obj.type === 'clearCanvas') {
-        obj.color = clientColor;
+        if (!obj.color) {
+          obj.color = clientColor;
+        }
         // Skicka till alla andra klienter (inte till avsändaren)
         broadcast(obj, ws);
         return;

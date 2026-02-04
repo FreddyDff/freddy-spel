@@ -9,6 +9,7 @@ const backgroundCanvas = document.querySelector('#backgroundCanvas');
 const overlayCanvas = document.querySelector('#overlayCanvas');
 const canvas = overlayCanvas; // Använd overlayCanvas som standard (för bakåtkompatibilitet)
 const brushIndicator = document.querySelector('#brushIndicator');
+const colorPicker = document.querySelector('#colorPicker');
 const clearCanvasBtn = document.querySelector('#clearCanvas');
 const cursorIndicator = document.querySelector('#cursorIndicator');
 const brushSound = new Audio('sounds/pen-colouring-34227.mp3');
@@ -27,6 +28,7 @@ let ctx = overlayCtx;      // Tillfälligt för bakåtkompatibilitet
 let userColor = null; // Färg som användaren får från servern
 let currentBrushSize = 3;
 let currentBrushType = 'normal';
+let selectedColor = '#000000'; // Standardfärg (svart)
 let currentSound = null; // Håll koll på det aktuella ljudet som spelas
 
 // händelse lyssnare
@@ -109,6 +111,11 @@ if (brushTypeSelect) {
     updateBrushIndicator();
   });
 }
+
+colorPicker.addEventListener('change', (e) => {
+  selectedColor = e.target.value;
+});
+
 
 clearCanvasBtn.addEventListener('click', () => {
   if (overlayCtx) {
@@ -470,11 +477,12 @@ function applyBrushSettings() {
   }
   
   // Använd användarens färg om den finns, annars svart
-  if (userColor) {
-    overlayCtx.strokeStyle = userColor;
-  } else {
-    overlayCtx.strokeStyle = '#000000';
-  }
+  // if (userColor) {
+  //   overlayCtx.strokeStyle = userColor;
+  // } else {
+  //   overlayCtx.strokeStyle = selectedColor;
+  // }
+  overlayCtx.strokeStyle = selectedColor;
 }
 
 function updateBrushIndicator() {
@@ -525,7 +533,8 @@ function startDrawing(e) {
       y: pos.y,
       username: username,
       brushSize: currentBrushSize,
-      brushType: currentBrushType
+      brushType: currentBrushType,
+      color: selectedColor
     }));
   }
 }
@@ -548,7 +557,8 @@ function draw(e) {
       y: pos.y,
       username: username,
       brushSize: currentBrushSize,
-      brushType: currentBrushType
+      brushType: currentBrushType,
+      color: selectedColor
     }));
   }
 }
@@ -601,7 +611,8 @@ function handleTouch(e) {
         y: pos.y,
         username: username,
         brushSize: currentBrushSize,
-        brushType: currentBrushType
+        brushType: currentBrushType,
+        color: selectedColor
       }));
     }
   } else if (e.type === 'touchmove' && isDrawing) {
