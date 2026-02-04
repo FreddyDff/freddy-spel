@@ -18,6 +18,21 @@ const backgroundMusic = document.querySelector('#backgroundMusic');
 const brushSound = new Audio('sounds/pen-colouring-34227.mp3');
 brushSound.volume = 0.2;
 
+// Wave-effekt för h1: Wrappa varje bokstav i en span
+document.addEventListener('DOMContentLoaded', () => {
+  const h1 = document.querySelector('h1');
+  if (h1) {
+    const text = h1.textContent;
+    h1.innerHTML = text.split('').map((char, index) => {
+      // Behåll mellanslag som de är
+      if (char === ' ') {
+        return '<span class="wave-space"> </span>';
+      }
+      return `<span class="wave-char" style="animation-delay: ${index * 0.1}s">${char}</span>`;
+    }).join('');
+  }
+});
+
 // variabler, inställningar
 let username = '';
 let websocket = null;

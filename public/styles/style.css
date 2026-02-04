@@ -9,8 +9,84 @@ h1 {
     text-align: center;
 }
 
+h1 .wave-char {
+    display: inline-block;
+    background: linear-gradient(45deg, #667eea, #764ba2, #f093fb, #4facfe, #00f2fe);
+    background-size: 300% 300%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: wave 1.5s ease-in-out infinite, colorShift 3s ease infinite;
+}
+
+h1 .wave-space {
+    display: inline-block;
+    width: 0.3em;
+}
+
+@keyframes wave {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-15px);
+    }
+}
+
+@keyframes colorShift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
 form {
     margin: 20px 0;
+}
+
+#formUsername {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    max-width: 400px;
+    margin: 30px auto;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+#formUsername input[type="text"] {
+    width: 100%;
+    max-width: 300px;
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    text-align: center;
+}
+
+#formUsername input[type="submit"] {
+    padding: 12px 30px;
+    font-size: 16px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 4px;
+    box-sizing: border-box;
+    height: auto;
+    line-height: 1;
+}
+
+#formUsername input[type="submit"]:hover {
+    background-color: #45a049;
 }
 
 input[type="text"] {
@@ -285,4 +361,13 @@ section#chatStage {
 .emoji:hover {
     background-color: #f0f0f0;
     transform: scale(1.1);
+}
+
+@keyframes pulse {
+    0%, 100% { 
+        transform: scale(1); 
+    }
+    50% { 
+        transform: scale(1.05); 
+    }
 }
