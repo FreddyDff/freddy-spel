@@ -67,8 +67,9 @@ formUsername.addEventListener('submit', (e) => {
     initCanvas();
 
     // Anslut till WebSocket
-
     connectWebSocket();
+
+    
     // Spela bakgrundsmusik
     if (backgroundMusic) {
       backgroundMusic.volume = 0.001; // Sätt volym till 30%
